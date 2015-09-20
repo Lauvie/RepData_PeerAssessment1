@@ -182,7 +182,7 @@ no_missing <- cbind(table1, replace_missing) %>%
 ```
 ## function (x, ...) 
 ## UseMethod("print")
-## <bytecode: 0x7fdacb8a5948>
+## <bytecode: 0x7fe09a988748>
 ## <environment: namespace:base>
 ```
 
