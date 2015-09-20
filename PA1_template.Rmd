@@ -1,5 +1,7 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "Laure Casanova"
+date: "20 septembre 2015"
 output: 
   html_document:
     keep_md: true
@@ -8,18 +10,157 @@ output:
 
 ## Loading and preprocessing the data
 
+Please note that you should set your working directory before running the code
+Also the packages dplyr and ggplot2 should be installed before running the code
 
+We start by loading the two packages we will need
+```{r, echo = TRUE}
+library(dplyr)
+library(ggplot2)
+```
+
+We first load the csv file, the original file is currently available at the following
+adress "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+```{r, echo = TRUE}
+table1 <- read.csv("./activity.csv")
+```
 
 ## What is mean total number of steps taken per day?
 
+To address this question, we use the dplyr package to get the average and median number of steps taken per day
+```{r, echo = TRUE}
+daily_steps <- table1 %>% 
+        na.omit() %>%
+        group_by(date) %>%
+        mutate(daily_steps = sum(steps)) %>% 
+        distinct(date, daily_steps) %>%
+        ungroup() %>%
+        mutate(average_daily_steps = mean(daily_steps)) %>%
+        mutate(median_daily_steps = median(daily_steps)) %>%
+        select(date, daily_steps, average_daily_steps,median_daily_steps) %>%
+        print
+```
+
+Then we make a histogram of the total number of steps taken per day. 
+```{r, echo = TRUE}
+hist(daily_steps$daily_steps,
+     breaks = 25,
+     col = "grey", 
+     main = "Total number of steps taken per day",
+     xlab = "Number of daily steps"
+)
+```
+
+
+We then calculate and report the mean and median of the total number of steps taken per day. We notice that these values are pretty much similar to the ones we had with the missing values. The median is very slightly smaller.
+```{r, echo = TRUE}
+average_daily_steps = mean(daily_steps$daily_steps)
+print(average_daily_steps)
+median_daily_steps = median(daily_steps$daily_steps)
+print(median_daily_steps)
+```
 
 
 ## What is the average daily activity pattern?
 
+We create a new table in which we get the average number of steps taken by interval
+```{r, echo = TRUE}
+time_series <- table1 %>% 
+        na.omit() %>%
+        group_by(interval) %>%
+        mutate(mean_steps_per_interval = mean(steps)) %>%
+        distinct(interval, mean_steps_per_interval) %>%
+        select(interval, mean_steps_per_interval) %>%
+        print
+
+```
+
+
+And we use the table we just created to make a time series plot of the 5-minute interval and the average number of steps taken, averaged across all days.
+```{r, echo = TRUE}
+plot(time_series$interval,time_series$mean_steps_per_interval, 
+     type="l",
+     main = "Average of steps taken by 5 min interval",
+     xlab = "Interval",
+     ylab = "Average number of steps",
+     cex.lab = 1,
+     cex.axis = 1
+)
+```
 
 
 ## Imputing missing values
 
+We start by calculating and reporting the total number of missing values in the initial dataset
+```{r, echo = TRUE}
+missing <- sum(is.na(table1$steps))
+print (missing)
+```
+
+Then we replace the missing values by the average number of steps taken on the corresponding interval
+```{r, echo = TRUE}
+replace_missing <- time_series[,2]
+
+no_missing <- cbind(table1, replace_missing) %>%
+        mutate(no_missing_steps =ifelse(is.na(steps), mean_steps_per_interval , steps))
+        print
+```
+
+Once the missing values have been replaced, we go on to calculating the average and the median of the number of steps taken
+```{r, echo = TRUE}
+no_missing_daily_steps <- no_missing %>%
+        group_by(date) %>%
+        mutate(daily_steps = sum(no_missing_steps)) %>% 
+        distinct(date, daily_steps) %>%
+        ungroup() %>%
+        mutate(average_daily_steps = mean(daily_steps)) %>%
+        mutate(median_daily_steps = median(daily_steps)) %>%
+        select(date, daily_steps, average_daily_steps,median_daily_steps) %>%
+        print 
+```
+
+Then we make a histogram of the total number of steps taken each day after replacing the missing values
+```{r, echo = TRUE}
+hist(no_missing_daily_steps$daily_steps,
+     breaks = 25,
+     col = "grey", 
+     main = "Total number of steps taken per day",
+     xlab = "Number of daily steps"
+)
+```
+
+Then we calculate the average and median
+```{r, echo = TRUE}
+average_daily_steps2 = mean(no_missing_daily_steps$daily_steps)
+print(average_daily_steps2)
+median_daily_steps2 = median(no_missing_daily_steps$daily_steps)
+print(median_daily_steps2)
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+We then go on to processing the data to see if there are any differences in activity patterns between weekdays and weekends
+```{r, echo = TRUE}
+average_day_type <- no_missing %>%
+        select(date, interval, no_missing_steps) %>%
+        mutate(weekday = weekdays(as.Date(date))) %>%
+        mutate(day_type = ifelse(weekday == "Samedi"|weekday == "Dimanche", "weekend", "weekday")) %>%
+        group_by(day_type, interval) %>%
+        mutate(average_day_type = mean(no_missing_steps)) %>%
+        distinct(day_type, interval, average_day_type) %>%
+        select(day_type, interval, average_day_type) %>%
+        print
+```
+
+And we make a plot to show separately the steps taken by interval on the weekdays and weekends. The plot clearly shows that there are indeed differences in the activity patterns.
+```{r, echo = TRUE}
+p <- ggplot(average_day_type,aes(interval, average_day_type)) 
+p <- p + geom_point(pch = 20, size=2, color = "skyblue")
+p <- p + facet_grid(day_type ~ .)
+p <- p + xlab(label="Interval")
+p <- p + ylab(label="Number of steps")
+p <- p + geom_line(linetype='solid', color = "skyblue")
+p <- p + theme(legend.position=c(0.85, 0.5), legend.title=element_blank(), panel.background = element_rect(fill = 'white', colour = 'black'))
+print(p)
+```
